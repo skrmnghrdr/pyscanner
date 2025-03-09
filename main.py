@@ -3,12 +3,14 @@
 import socket
 import argparse
 import threading #nitrous oxide :)
-
+import http.client
+#we might need a http.client so we can wget -r
+#make a whole network range scanner as well.#ez to implement
 #from asian_heritiage, import rice and fish
 #import Dainty_Wilder.withclothes(True)
 #import coffee
 #import nicotine. (not really)
-
+#add
 """
 quick and dirty script frankenstiened from stackoverflow,
 github, googleai, chatgpt, my braincells
@@ -25,42 +27,45 @@ proxychains and ping hosts, hency why I made this.
 
 lines on code not cut to 75 characters for easy vim pasting.
 """
-OPEN_PORTS = []
+SCANNED_HOSTS = {}
 
 def tcp_client(host: str, port: int):
-    print("[*] Scanning {} on port {}".format(host, port))
+    print("[*] Scanning {} on port {}".format(host,port))
+
+
+    
+    
     try:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client.connect((host, port))
         print(f"[/] Connected to {host}:{port}")
 
-        #delete incase the server does not respond 
-        #here is a generic http get to
-        #message = "Hello, Server!"
+
         if port == 80:
-            #if http, we need to grab the head lmao
+                #if http, we need to grab the head lmao
             print("[!] Trying PORT 80, sending HTTP GET")
             http_reqest = "GET / HTTP/1.1\r\nHost: {}\r\n\r\n".format(host).encode('utf-8')
             client.sendall(http_reqest)
-            
+                
         else:
             message = "wake tf up"
             client.sendall(message.encode('utf-8'))
-        #print(f"Sent: {message}")
-        
-        # Receive data
-        response = client.recv(1024)
-        #print(f"[%] Received:\n{response.decode("utf-8", errors="ignore")}")
-        print("[%] Received:\n{}".format(response.decode('utf-8', errors='ignore')))
+            #print(f"Sent: {message}")
+            
 
-        OPEN_PORTS.append(port)
+            # Receive data
+        response = client.recv(1024)
+            #print(f"[%] Received:\n{response.decode("utf-8", errors="ignore")}")
+        print("[%] Received:\n{}".format(response.decode('utf-8', errors='ignore')))
+            
+        SCANNED_HOSTS[host].append(port)
 
     except Exception as e:
-        print("[X] Error: PORT:{} {}".format(port, e))
+        print("[X] Error: HOST:{} PORT:{} Err:{}".format(host, port, e))
     finally:
-        # Close the connection
+            # Close the connection
         client.close()
-        #print("Connection closed")
+            #print("Connection closed")
 
 def udp_client(host: str, port: int):
     try:
@@ -84,11 +89,14 @@ def udp_client(host: str, port: int):
 
 
 def main():
+
     parser = argparse.ArgumentParser(description="zxxxx")
-    parser.add_argument("--host", type=str, help="the host in STR: eg: 192.168.1.1, default would be 127.0.0.1", default="127.0.0.1")
+    parser.add_argument("--host", type=str, help="the host in STR: eg: 192.168.0, default would be 127.0.0.1")
+    parser.add_argument("--hstart", type=str, help="start where? xxx.xxx.xxx.0", default=0)
+    parser.add_argument("--hend", type=str, help="end where? xxx.xxx.xxx.0", default=254)
     parser.add_argument("--proto", type=str, help="protcol to use, tcp or udp. default is tcp", default="tcp")
 
-    ports = [21,22,23,80,100,123,134,3333]
+    ports = [21,22,23,80,134]
     #we might just ditch the port on this since we only have 3 std ports to scan, once we get in, we just do recon on the machine to locate the port of our ssh.
     args = parser.parse_args()
 
@@ -96,32 +104,42 @@ def main():
 
     #if args.proto == "tcp":
         #bro wants tcp then
-    for port in ports:
-        if args.proto == "tcp":
-            #cvhat gpt came clutchy on this 
-            thread = threading.Thread(target=tcp_client, args=(args.host, port))
-        if args.proto == "udp":
-            thread = threading.Thread(target=udp_client, args=(args.host, port))
+    hstart = int(args.hstart)
+    hend = (int(args.hend)+1)
 
-        threads.append(thread)
-        thread.start()
+
+    for ip in range(hstart, hend):
+        curr_host = "{}.{}".format(args.host, str(ip))
+
+        SCANNED_HOSTS.update({curr_host:[]})
+
+        for port in ports:
+            if args.proto == "tcp":
+                #cvhat gpt came clutchy on this 
+                thread = threading.Thread(target=tcp_client, args=(curr_host, port))
+            if args.proto == "udp":
+                thread = threading.Thread(target=udp_client, args=(curr_host, port))
+
+            threads.append(thread)
+            thread.start()
+
 
     for thread in threads:
         #we wait for threads to finsih.
+        #DO NOT DELETE PLS
         thread.join()
 
 
     
-    print("\n[!] Finished Host: {}".format(args.host))
-    print("[!] OPEN_PORTS {}".format(sorted(OPEN_PORTS)))
-    #parser.add_argument("--port", type=str, help="the target port in INT: eg 21 22 23 80")
+    for key, value in SCANNED_HOSTS.items():
+        if value:
+            print("[*] Host:{}, ports:{}".format(key, sorted(SCANNED_HOSTS[key])))    
 
-    #change here
-    #runs at localhost,
-    """
-    print("Banner grabs the TCP port by the nutsack")
-    porty = int(input("Enter port:"))
-    tcp_client("127.0.0.1", porty)
-    """
+    print("\n[!] Finished Host: {}".format(args.host))
+
+
+    #print("[!] OPEN_PORTS {}".format(sorted(OPEN_PORTS)))
+    #parser.add_argument("--port", type=str, help="the target port in INT: eg 21 22 23 80")
+    #python3 tcpbannergrabber.py --host 10.50.24 --hstart 90 --hend 120
 
 main()
