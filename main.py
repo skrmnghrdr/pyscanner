@@ -29,8 +29,9 @@ lines on code not cut to 75 characters for easy vim pasting.
 """
 SCANNED_HOSTS = {}
 
-def tcp_client(host: str, port: int):
-    print("[*] Scanning {} on port {}".format(host,port))
+def tcp_client(host: str, port: int, verb):
+    if verb == "t":
+        print("[*] Scanning {} on port {}".format(host,port))
 
 
     
@@ -56,12 +57,13 @@ def tcp_client(host: str, port: int):
             # Receive data
         response = client.recv(1024)
             #print(f"[%] Received:\n{response.decode("utf-8", errors="ignore")}")
-        print("[%] Received:\n{}".format(response.decode('utf-8', errors='ignore')))
+        print("[%] HTTP HOST: {} Received:\n{}".format(host, response.decode('utf-8', errors='ignore')))
             
         SCANNED_HOSTS[host].append(port)
 
     except Exception as e:
-        print("[X] Error: HOST:{} PORT:{} Err:{}".format(host, port, e))
+        if verb == "t":
+            print("[X] Error: HOST:{} PORT:{} Err:{}".format(host, port, e))
     finally:
             # Close the connection
         client.close()
@@ -95,6 +97,7 @@ def main():
     parser.add_argument("--hstart", type=str, help="start where? xxx.xxx.xxx.0", default=0)
     parser.add_argument("--hend", type=str, help="end where? xxx.xxx.xxx.0", default=254)
     parser.add_argument("--proto", type=str, help="protcol to use, tcp or udp. default is tcp", default="tcp")
+    parser.add_argument("--verbose", type=str, default="f")
 
     ports = [21,22,23,80,134]
     #we might just ditch the port on this since we only have 3 std ports to scan, once we get in, we just do recon on the machine to locate the port of our ssh.
@@ -116,7 +119,7 @@ def main():
         for port in ports:
             if args.proto == "tcp":
                 #cvhat gpt came clutchy on this 
-                thread = threading.Thread(target=tcp_client, args=(curr_host, port))
+                thread = threading.Thread(target=tcp_client, args=(curr_host, port, args.verbose))
             if args.proto == "udp":
                 thread = threading.Thread(target=udp_client, args=(curr_host, port))
 
